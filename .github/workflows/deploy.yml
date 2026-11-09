@@ -1,4 +1,3 @@
-
 name: Deploy 매출도우미
 
 on:
@@ -28,7 +27,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          package-manager-cache: false
 
       - name: 패키지 설치
         run: npm install
@@ -45,5 +44,4 @@ jobs:
           path: ./dist
 
       - name: 사이트 배포
-        id: deployment
         uses: actions/deploy-pages@v4
