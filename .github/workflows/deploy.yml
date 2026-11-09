@@ -1,0 +1,49 @@
+
+name: Deploy 매출도우미
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 패키지 설치
+        run: npm install
+
+      - name: Vite 빌드
+        run: npm run build
+
+      - name: GitHub Pages 설정
+        uses: actions/configure-pages@v5
+
+      - name: dist 업로드
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: 사이트 배포
+        id: deployment
+        uses: actions/deploy-pages@v4
