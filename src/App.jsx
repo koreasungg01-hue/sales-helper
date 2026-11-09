@@ -80,35 +80,44 @@ function App() {
 
   // Firebase 로그인 상태 확인
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async currentUser => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async currentUser => {
+        setUser(currentUser);
 
-      if (!currentUser) {
-        setSales([]);
-        setProducts([]);
+        if (!currentUser) {
+          setSales([]);
+          setProducts([]);
+          setAuthLoading(false);
+          setDataLoading(false);
+          return;
+        }
+
+        setDataLoading(true);
+
+        try {
+          const [loadedSales, loadedProducts] = await Promise.all([
+            getSales(),
+            getProducts()
+          ]);
+
+          setSales(loadedSales);
+          setProducts(loadedProducts);
+        } catch (error) {
+          console.error("Firebase 데이터 오류:", error);
+          alert("데이터를 불러오지 못했습니다: " + error.message);
+        } finally {
+          setDataLoading(false);
+          setAuthLoading(false);
+        }
+      },
+      error => {
+        console.error("Firebase 인증 오류:", error);
         setAuthLoading(false);
         setDataLoading(false);
-        return;
+        alert("인증 오류: " + error.message);
       }
-
-      setDataLoading(true);
-
-      try {
-        const [loadedSales, loadedProducts] = await Promise.all([
-          getSales(),
-          getProducts()
-        ]);
-
-        setSales(loadedSales);
-        setProducts(loadedProducts);
-      } catch (error) {
-        console.error("Firebase 데이터 불러오기 실패:", error);
-        alert("데이터를 불러오지 못했습니다. Firebase 설정을 확인해 주세요.");
-      } finally {
-        setDataLoading(false);
-        setAuthLoading(false);
-      }
-    });
+    );
 
     return unsubscribe;
   }, []);
