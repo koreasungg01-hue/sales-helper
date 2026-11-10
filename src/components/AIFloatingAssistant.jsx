@@ -17,7 +17,10 @@ const greeting = {
   text: "안녕하세요! 매출도우미 AI입니다. 매장 관리를 무엇부터 도와드릴까요?"
 };
 
-export default function AIFloatingAssistant() {
+export default function AIFloatingAssistant({
+  sales = [],
+  products = []
+}) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,7 +71,10 @@ export default function AIFloatingAssistant() {
     setLoading(true);
 
     try {
-      const answer = await askAI(message);
+      const answer = await askAI(message, {
+        sales,
+        products
+      });
 
       setMessages(prev => [
         ...prev,
