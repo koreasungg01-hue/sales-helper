@@ -529,7 +529,10 @@ function App() {
       )}
 
       {/* 로그인 사용자 전용 AI 비서 */}
-      <AIFloatingAssistant />
+      <AIFloatingAssistant
+        sales={sales}
+        products={products}
+      />
 
     </div>
   );
