@@ -1,12 +1,18 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import {
   Bot,
   X,
   Send,
   Sparkles,
   MessageCircle,
-  Minus
+  Minus,
+  Copy,
+  Check
 } from "lucide-react";
 
 import { askAI, loadAIHistory } from "../services/ai";
@@ -17,6 +23,100 @@ const greeting = {
   text: "안녕하세요! 매출도우미 AI입니다. 매장 관리를 무엇부터 도와드릴까요?"
 };
 
+function MarkdownMessage({ text }) {
+  return (
+    <div className="ai-markdown">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          hr: () => (
+            <hr className="ai-markdown-divider" />
+          ),
+
+          table: ({ children }) => (
+            <div className="ai-markdown-table-wrap">
+              <table>{children}</table>
+            </div>
+          ),
+
+          pre: ({ children }) => (
+            <pre className="ai-code-block">
+              {children}
+            </pre>
+          ),
+
+          code: ({ children, className }) => {
+            const inline = !className;
+
+            return (
+              <code
+                className={
+                  inline
+                    ? "ai-inline-code"
+                    : `ai-code ${className || ""}`
+                }
+              >
+                {children}
+              </code>
+            );
+          },
+
+          a: ({ children, href }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {children}
+            </a>
+          ),
+
+          blockquote: ({ children }) => (
+            <blockquote className="ai-markdown-quote">
+              {children}
+            </blockquote>
+          )
+        }}
+      >
+        {text || " "}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyText() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch (error) {
+      console.error("복사 실패:", error);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="ai-copy-button"
+      onClick={copyText}
+      aria-label="답변 복사"
+    >
+      {copied ? (
+        <Check size={15} />
+      ) : (
+        <Copy size={15} />
+      )}
+      {copied ? "복사됨" : "복사"}
+    </button>
+  );
+}
+
 export default function AIFloatingAssistant({
   sales = [],
   products = []
@@ -25,6 +125,8 @@ export default function AIFloatingAssistant({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([greeting]);
+
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -42,7 +144,7 @@ export default function AIFloatingAssistant({
         ]);
       })
       .catch(error => {
-        console.error("AI 대화 기록 불러오기 실패:", error);
+        console.error("AI 기록 불러오기 실패:", error);
       });
 
     return () => {
@@ -50,11 +152,18 @@ export default function AIFloatingAssistant({
     };
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end"
+    });
+  }, [messages, loading]);
+
   const suggestions = [
-    "오늘 매출 분석해 줘",
+    "현재 매장 상황을 분석해 줘",
     "인기 상품을 알려 줘",
     "재고 부족 상품을 알려 줘",
-    "다음 달 매출을 예측해 줘"
+    "매출을 높일 방법을 추천해 줘"
   ];
 
   async function sendMessage(value = input) {
@@ -62,49 +171,95 @@ export default function AIFloatingAssistant({
 
     if (!message || loading) return;
 
+    const responseId =
+      `${Date.now()}-${Math.random()}`;
+
     setMessages(prev => [
       ...prev,
-      { role: "user", text: message }
+      {
+        role: "user",
+        text: message
+      },
+      {
+        id: responseId,
+        role: "assistant",
+        text: "",
+        streaming: true
+      }
     ]);
 
     setInput("");
     setLoading(true);
 
     try {
-      const answer = await askAI(message, {
-        sales,
-        products
-      });
+      const answer = await askAI(
+        message,
+        {
+          sales,
+          products
+        },
+        streamedText => {
+          setMessages(prev =>
+            prev.map(item =>
+              item.id === responseId
+                ? {
+                    ...item,
+                    text: streamedText
+                  }
+                : item
+            )
+          );
+        }
+      );
 
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", text: answer }
-      ]);
+      setMessages(prev =>
+        prev.map(item =>
+          item.id === responseId
+            ? {
+                ...item,
+                text: answer,
+                streaming: false
+              }
+            : item
+        )
+      );
     } catch (error) {
       console.error("Gemini AI 오류:", error);
 
       let errorMessage =
         "AI 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
-      if (error.code === "permission-denied") {
+      if (
+        error.code === "permission-denied"
+      ) {
         errorMessage =
           "대화 기록 저장 권한이 없습니다. Firebase 보안 규칙을 확인해 주세요.";
+      } else if (
+        error.code === "resource-exhausted" ||
+        error.message?.toLowerCase().includes("quota")
+      ) {
+        errorMessage =
+          "AI 무료 사용 한도에 도달했을 수 있습니다.";
       } else if (
         error.message?.toLowerCase().includes("app check")
       ) {
         errorMessage =
           "Firebase App Check 설정을 확인해 주세요.";
-      } else if (
-        error.message?.toLowerCase().includes("quota")
-      ) {
-        errorMessage =
-          "AI 무료 사용 한도에 도달했을 수 있습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (error.message) {
+        errorMessage = `AI 오류: ${error.message}`;
       }
 
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", text: errorMessage }
-      ]);
+      setMessages(prev =>
+        prev.map(item =>
+          item.id === responseId
+            ? {
+                ...item,
+                text: errorMessage,
+                streaming: false
+              }
+            : item
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -114,13 +269,14 @@ export default function AIFloatingAssistant({
     <>
       {open && (
         <div className="ai-chat-window">
+
           <div className="ai-chat-header">
             <div className="ai-chat-brand">
               <div className="ai-avatar">
-                <Bot size={21} />
+                <Bot size={22} />
               </div>
 
-              <div>
+              <div className="ai-brand-text">
                 <strong>매출도우미 AI</strong>
                 <span>
                   <i /> Gemini AI
@@ -132,7 +288,7 @@ export default function AIFloatingAssistant({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="채팅 최소화"
+                aria-label="최소화"
               >
                 <Minus size={19} />
               </button>
@@ -140,42 +296,63 @@ export default function AIFloatingAssistant({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="채팅 닫기"
+                aria-label="닫기"
               >
                 <X size={19} />
               </button>
             </div>
           </div>
 
+          <div className="ai-chat-status">
+            <span className="ai-status-dot" />
+            매장 데이터 연결
+            <span className="ai-status-count">
+              상품 {products.length}개 · 매출 {sales.length}건
+            </span>
+          </div>
+
           <div className="ai-chat-messages">
+
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={message.id || index}
                 className={`ai-message ${message.role}`}
               >
                 {message.role === "assistant" && (
                   <div className="ai-message-avatar">
-                    <Bot size={16} />
+                    <Bot size={17} />
                   </div>
                 )}
 
-                <div className="ai-message-bubble">
-                  {message.text}
+                <div className="ai-message-content">
+                  <div className="ai-message-bubble">
+                    {message.role === "assistant" ? (
+                      <>
+                        {message.text ? (
+                          <MarkdownMessage text={message.text} />
+                        ) : (
+                          <div className="ai-thinking">
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="ai-user-text">
+                        {message.text}
+                      </div>
+                    )}
+                  </div>
+
+                  {message.role === "assistant" &&
+                    message.text &&
+                    !message.streaming && (
+                      <CopyButton text={message.text} />
+                    )}
                 </div>
               </div>
             ))}
-
-            {loading && (
-              <div className="ai-message assistant">
-                <div className="ai-message-avatar">
-                  <Bot size={16} />
-                </div>
-
-                <div className="ai-message-bubble">
-                  답변을 작성하고 있어요...
-                </div>
-              </div>
-            )}
 
             {messages.length === 1 && !loading && (
               <div className="ai-suggestions">
@@ -193,6 +370,9 @@ export default function AIFloatingAssistant({
                 ))}
               </div>
             )}
+
+            <div ref={messagesEndRef} />
+
           </div>
 
           <form
@@ -204,7 +384,9 @@ export default function AIFloatingAssistant({
           >
             <input
               value={input}
-              onChange={event => setInput(event.target.value)}
+              onChange={event =>
+                setInput(event.target.value)
+              }
               placeholder="AI에게 질문하기..."
               disabled={loading}
             />
@@ -219,8 +401,9 @@ export default function AIFloatingAssistant({
           </form>
 
           <div className="ai-chat-footer">
-            Gemini AI · 대화 기록은 계정별로 저장됩니다.
+            AI 답변은 실제 연결된 매장 데이터를 참고합니다.
           </div>
+
         </div>
       )}
 
@@ -235,7 +418,9 @@ export default function AIFloatingAssistant({
           <MessageCircle size={25} />
         )}
 
-        {!open && <span className="ai-button-glow" />}
+        {!open && (
+          <span className="ai-button-glow" />
+        )}
       </button>
     </>
   );
