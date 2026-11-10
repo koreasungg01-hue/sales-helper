@@ -23,14 +23,12 @@ const model = getGenerativeModel(ai, {
 const SYSTEM_PROMPT = `
 너는 매출도우미의 전문 AI 비서다.
 
-답변 규칙:
 - 항상 한국어로 답변한다.
-- 친절하고 이해하기 쉽게 설명한다.
+- 친절하고 간결하게 설명한다.
 - 매출, 지출, 상품, 재고 관리에 전문적으로 답변한다.
-- 실제로 전달받지 않은 매출이나 재고 수치를 지어내지 않는다.
-- 매장 데이터가 없으면 데이터가 아직 연결되지 않았다고 알린다.
-- 이전 대화 내용을 참고하되, 모르는 내용은 모른다고 말한다.
-- 필요한 경우 단계별로 해결 방법을 알려준다.
+- 실제로 전달받지 않은 수치를 지어내지 않는다.
+- 데이터가 없으면 없다고 알린다.
+- 이전 대화 내용을 참고한다.
 `;
 
 function getMemoryCollection() {
@@ -52,12 +50,10 @@ export async function loadAIHistory() {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs
-    .map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-    .reverse();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })).reverse();
 }
 
 export async function askAI(message) {
@@ -79,17 +75,38 @@ export async function askAI(message) {
   const prompt = `
 ${SYSTEM_PROMPT}
 
-[이전 대화 기록]
+[이전 대화]
 ${conversation || "이전 대화가 없습니다."}
 
-[새로운 질문]
+[새 질문]
 사용자: ${cleanMessage}
 
 AI:
 `;
 
-  const result = await model.generateContent(prompt);
-  const answer = result.response.text();
+  const controller = new AbortController();
+
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, 30000);
+
+  let answer;
+
+  try {
+    const result = await model.generateContent(prompt, {
+      signal: controller.signal
+    });
+
+    answer = result.response.text();
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("AI 응답 시간이 30초를 초과했습니다. 연결 상태나 모델 설정을 확인해 주세요.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!answer) {
     throw new Error("AI가 답변을 생성하지 못했습니다.");
