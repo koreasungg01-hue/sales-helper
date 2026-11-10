@@ -27,6 +27,7 @@ import {
 } from "./services/database";
 
 import AuthPage from "./AuthPage";
+import AIFloatingAssistant from "./components/AIFloatingAssistant";
 
 const menuItems = [
   { name: "홈", icon: LayoutDashboard },
@@ -78,7 +79,6 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Firebase 로그인 상태 확인
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -127,7 +127,6 @@ function App() {
     0
   );
 
-  // 매출 등록
   async function addSale(event) {
     event.preventDefault();
 
@@ -159,7 +158,6 @@ function App() {
     }
   }
 
-  // 상품 등록
   async function addProduct(event) {
     event.preventDefault();
 
@@ -187,7 +185,6 @@ function App() {
     }
   }
 
-  // 로그아웃
   async function handleLogout() {
     try {
       await logoutUser();
@@ -263,7 +260,6 @@ function App() {
     }
   }
 
-  // 인증 확인 중
   if (authLoading) {
     return (
       <div className="auth-screen">
@@ -276,7 +272,6 @@ function App() {
     );
   }
 
-  // 로그인하지 않은 경우
   if (!user) {
     return <AuthPage />;
   }
@@ -452,7 +447,6 @@ function App() {
 
       </main>
 
-      {/* 매출 등록 모달 */}
       {showSaleForm && (
         <Modal
           title="새 매출 등록"
@@ -488,7 +482,6 @@ function App() {
         </Modal>
       )}
 
-      {/* 상품 등록 모달 */}
       {showProductForm && (
         <Modal
           title="새 상품 등록"
@@ -535,15 +528,16 @@ function App() {
         </Modal>
       )}
 
+      {/* 로그인 사용자 전용 AI 비서 */}
+      <AIFloatingAssistant />
+
     </div>
   );
 }
 
-// 공통 페이지 제목
 function PageHeader({ title, description, action, onAction }) {
   return (
     <div className="page-header">
-
       <div>
         <h1>{title}</h1>
         <p>{description}</p>
@@ -554,12 +548,10 @@ function PageHeader({ title, description, action, onAction }) {
           <Plus size={17} /> {action}
         </button>
       )}
-
     </div>
   );
 }
 
-// 통계 카드
 function StatCard({
   title,
   value,
@@ -570,7 +562,6 @@ function StatCard({
 }) {
   return (
     <div className="stat-card">
-
       <div className="stat-top">
         <span>{title}</span>
 
@@ -590,12 +581,10 @@ function StatCard({
 
         <span>{subtitle}</span>
       </div>
-
     </div>
   );
 }
 
-// 홈 대시보드
 function Dashboard({
   sales,
   products,
@@ -626,7 +615,6 @@ function Dashboard({
 
   return (
     <>
-
       <PageHeader
         title="안녕하세요! 👋"
         description="오늘의 매장 현황을 한눈에 확인해 보세요."
@@ -660,7 +648,6 @@ function Dashboard({
       </div>
 
       <div className="stats-grid">
-
         <StatCard
           title="등록된 매출"
           value={money(totalSales)}
@@ -692,13 +679,10 @@ function Dashboard({
           icon={ShoppingBag}
           color="purple"
         />
-
       </div>
 
       <div className="dashboard-grid">
-
         <div className="panel chart-panel">
-
           <div className="panel-header">
             <div>
               <h3>매출 추이</h3>
@@ -718,7 +702,6 @@ function Dashboard({
           <div className="chart-container">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={realChartData}>
-
                 <defs>
                   <linearGradient
                     id="salesGradient"
@@ -727,17 +710,8 @@ function Dashboard({
                     x2="0"
                     y2="1"
                   >
-                    <stop
-                      offset="0%"
-                      stopColor="#3478f6"
-                      stopOpacity={0.2}
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="#3478f6"
-                      stopOpacity={0}
-                    />
+                    <stop offset="0%" stopColor="#3478f6" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#3478f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
 
@@ -776,15 +750,12 @@ function Dashboard({
                   strokeWidth={3}
                   fill="url(#salesGradient)"
                 />
-
               </AreaChart>
             </ResponsiveContainer>
           </div>
-
         </div>
 
         <div className="panel ai-panel">
-
           <div className="ai-heading">
             <div className="ai-icon">
               <Sparkles size={20} />
@@ -800,7 +771,6 @@ function Dashboard({
 
           <div className="insight-item">
             <div className="insight-symbol positive">↗</div>
-
             <div>
               <strong>누적 매출</strong>
               <p>현재까지 {money(totalSales)}의 매출이 등록되었습니다.</p>
@@ -809,7 +779,6 @@ function Dashboard({
 
           <div className="insight-item">
             <div className="insight-symbol warning">!</div>
-
             <div>
               <strong>재고 확인 필요</strong>
               <p>재고가 적은 상품 {lowStock.length}개를 확인하세요.</p>
@@ -819,15 +788,11 @@ function Dashboard({
           <button className="ai-link" onClick={onOpenAI}>
             AI 분석 살펴보기 <ArrowUpRight size={16} />
           </button>
-
         </div>
-
       </div>
 
       <div className="dashboard-grid bottom-grid">
-
         <div className="panel">
-
           <div className="panel-header">
             <div>
               <h3>최근 매출</h3>
@@ -838,11 +803,9 @@ function Dashboard({
           </div>
 
           <SalesTable sales={sales.slice(0, 4)} />
-
         </div>
 
         <div className="panel">
-
           <div className="panel-header">
             <div>
               <h3>재고 알림</h3>
@@ -859,7 +822,6 @@ function Dashboard({
           ) : (
             lowStock.map(product => (
               <div className="stock-alert" key={product.id}>
-
                 <div className="product-placeholder">
                   <Package size={20} />
                 </div>
@@ -870,34 +832,23 @@ function Dashboard({
                 </div>
 
                 <span className="stock-badge">부족</span>
-
               </div>
             ))
           )}
-
         </div>
-
       </div>
-
     </>
   );
 }
 
-// 매출 표
 function SalesTable({ sales }) {
   if (!sales.length) {
-    return (
-      <div className="empty-state">
-        등록된 매출이 없습니다.
-      </div>
-    );
+    return <div className="empty-state">등록된 매출이 없습니다.</div>;
   }
 
   return (
     <div className="table-scroll">
-
       <table className="data-table">
-
         <thead>
           <tr>
             <th>상품명</th>
@@ -910,28 +861,20 @@ function SalesTable({ sales }) {
         <tbody>
           {sales.map(item => (
             <tr key={item.id}>
-
               <td className="table-name">{item.name}</td>
               <td>{item.date}</td>
               <td className="table-money">{money(item.amount)}</td>
-
               <td>
-                <span className="status-pill">
-                  {item.status}
-                </span>
+                <span className="status-pill">{item.status}</span>
               </td>
-
             </tr>
           ))}
         </tbody>
-
       </table>
-
     </div>
   );
 }
 
-// 매출 관리
 function SalesPage({ sales, onAdd, search }) {
   const filtered = sales.filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase())
@@ -939,7 +882,6 @@ function SalesPage({ sales, onAdd, search }) {
 
   return (
     <>
-
       <PageHeader
         title="매출 관리"
         description="판매 내역을 등록하고 관리하세요."
@@ -948,7 +890,6 @@ function SalesPage({ sales, onAdd, search }) {
       />
 
       <div className="stats-grid compact-stats">
-
         <StatCard
           title="총 매출"
           value={money(sales.reduce((s, x) => s + Number(x.amount || 0), 0))}
@@ -964,11 +905,9 @@ function SalesPage({ sales, onAdd, search }) {
           color="purple"
           subtitle="전체 등록 건수"
         />
-
       </div>
 
       <div className="panel">
-
         <div className="panel-header">
           <div>
             <h3>전체 매출 내역</h3>
@@ -981,25 +920,20 @@ function SalesPage({ sales, onAdd, search }) {
         </div>
 
         <SalesTable sales={filtered} />
-
       </div>
-
     </>
   );
 }
 
-// 지출 관리
 function ExpensesPage() {
   return (
     <>
-
       <PageHeader
         title="지출 관리"
         description="매장의 지출을 기록하고 관리하세요."
       />
 
       <div className="stats-grid compact-stats">
-
         <StatCard
           title="이번 달 지출"
           value="₩0"
@@ -1015,11 +949,9 @@ function ExpensesPage() {
           color="purple"
           subtitle="등록된 지출"
         />
-
       </div>
 
       <div className="panel">
-
         <div className="panel-header">
           <div>
             <h3>지출 내역</h3>
@@ -1030,14 +962,11 @@ function ExpensesPage() {
         <div className="empty-state">
           지출 등록 기능은 다음 개발 단계에서 구현합니다.
         </div>
-
       </div>
-
     </>
   );
 }
 
-// 상품 관리
 function ProductsPage({ products, onAdd, search }) {
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
@@ -1045,7 +974,6 @@ function ProductsPage({ products, onAdd, search }) {
 
   return (
     <>
-
       <PageHeader
         title="상품 관리"
         description="판매 중인 상품과 가격을 관리하세요."
@@ -1054,7 +982,6 @@ function ProductsPage({ products, onAdd, search }) {
       />
 
       <div className="panel">
-
         <div className="panel-header">
           <div>
             <h3>내 상품</h3>
@@ -1063,15 +990,11 @@ function ProductsPage({ products, onAdd, search }) {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="empty-state">
-            등록된 상품이 없습니다.
-          </div>
+          <div className="empty-state">등록된 상품이 없습니다.</div>
         ) : (
           <div className="product-grid">
-
             {filtered.map(product => (
               <div className="product-card" key={product.id}>
-
                 <div className="product-image">
                   <Package size={34} />
                 </div>
@@ -1081,31 +1004,24 @@ function ProductsPage({ products, onAdd, search }) {
                   <h3>{money(product.price)}</h3>
                   <span>재고 {product.stock}개</span>
                 </div>
-
               </div>
             ))}
-
           </div>
         )}
-
       </div>
-
     </>
   );
 }
 
-// 재고 관리
 function InventoryPage({ products }) {
   return (
     <>
-
       <PageHeader
         title="재고 관리"
         description="상품별 재고 현황을 확인하세요."
       />
 
       <div className="stats-grid compact-stats">
-
         <StatCard
           title="등록 상품"
           value={`${products.length}개`}
@@ -1121,11 +1037,9 @@ function InventoryPage({ products }) {
           color="orange"
           subtitle="5개 이하 상품"
         />
-
       </div>
 
       <div className="panel">
-
         <div className="panel-header">
           <div>
             <h3>재고 현황</h3>
@@ -1134,54 +1048,39 @@ function InventoryPage({ products }) {
         </div>
 
         {products.length === 0 ? (
-          <div className="empty-state">
-            등록된 상품이 없습니다.
-          </div>
+          <div className="empty-state">등록된 상품이 없습니다.</div>
         ) : (
           <div className="simple-list">
-
             {products.map(product => (
               <div className="inventory-row" key={product.id}>
-
                 <div>
                   <strong>{product.name}</strong>
                   <span>{money(product.price)}</span>
                 </div>
 
-                <strong
-                  className={
-                    product.stock <= 5
-                      ? "low-stock"
-                      : "normal-stock"
-                  }
-                >
+                <strong className={
+                  product.stock <= 5 ? "low-stock" : "normal-stock"
+                }>
                   {product.stock}개
                 </strong>
-
               </div>
             ))}
-
           </div>
         )}
-
       </div>
-
     </>
   );
 }
 
-// AI 분석
 function AIPage() {
   return (
     <>
-
       <PageHeader
         title="AI 분석"
         description="AI가 매장의 데이터를 분석하고 인사이트를 제공합니다."
       />
 
       <div className="ai-big-card">
-
         <div className="ai-icon large">
           <Sparkles size={28} />
         </div>
@@ -1192,14 +1091,10 @@ function AIPage() {
           매출과 지출 데이터를 바탕으로 유용한 분석을 제공할 예정입니다.
         </p>
 
-        <span className="coming-label">
-          AI 연결 준비 중
-        </span>
-
+        <span className="coming-label">AI 연결 준비 중</span>
       </div>
 
       <div className="stats-grid">
-
         <StatCard
           title="매출 분석"
           value="준비 중"
@@ -1223,25 +1118,20 @@ function AIPage() {
           color="purple"
           subtitle="상품 판매 분석"
         />
-
       </div>
-
     </>
   );
 }
 
-// 직원 공유
 function EmployeesPage() {
   return (
     <>
-
       <PageHeader
         title="직원 공유"
         description="직원을 초대하고 업무 권한을 관리하세요."
       />
 
       <div className="panel">
-
         <div className="empty-illustration">
           <Users size={38} />
         </div>
@@ -1259,18 +1149,14 @@ function EmployeesPage() {
           <div><Eye size={18} /> 매출·재고 열람 권한</div>
           <div><Settings size={18} /> 역할별 권한 설정</div>
         </div>
-
       </div>
-
     </>
   );
 }
 
-// 구매자 홍보
 function PromotionPage({ products }) {
   return (
     <>
-
       <PageHeader
         title="구매자 홍보"
         description="구매자에게 보여줄 상품 홍보 페이지를 관리하세요."
@@ -1288,15 +1174,11 @@ function PromotionPage({ products }) {
       </div>
 
       {products.length === 0 ? (
-        <div className="empty-state">
-          홍보할 상품이 없습니다.
-        </div>
+        <div className="empty-state">홍보할 상품이 없습니다.</div>
       ) : (
         <div className="product-grid">
-
           {products.map(product => (
             <div className="product-card" key={product.id}>
-
               <div className="product-image">
                 <ShoppingBag size={34} />
               </div>
@@ -1306,10 +1188,8 @@ function PromotionPage({ products }) {
                 <h3>{money(product.price)}</h3>
                 <span>공개 페이지 연결 준비 중</span>
               </div>
-
             </div>
           ))}
-
         </div>
       )}
 
@@ -1317,16 +1197,13 @@ function PromotionPage({ products }) {
         구매자 페이지에는 판매 원가, 순이익, 내부 통계 및 직원 정보가
         노출되지 않도록 별도 공개 데이터를 사용해야 합니다.
       </p>
-
     </>
   );
 }
 
-// 보고서
 function ReportsPage() {
   return (
     <>
-
       <PageHeader
         title="보고서"
         description="매장의 운영 현황을 보고서로 확인하세요."
@@ -1339,23 +1216,19 @@ function ReportsPage() {
           매출·지출·재고 데이터를 모아 보고서를 생성할 예정입니다.
         </p>
       </div>
-
     </>
   );
 }
 
-// 설정
 function SettingsPage() {
   return (
     <>
-
       <PageHeader
         title="설정"
         description="계정과 매장 환경을 관리하세요."
       />
 
       <div className="panel settings-list">
-
         {[
           ["계정 정보", "프로필과 로그인 정보 관리"],
           ["매장 정보", "매장 이름과 기본 정보"],
@@ -1364,36 +1237,29 @@ function SettingsPage() {
           ["요금제", "무료 및 유료 플랜 확인"]
         ].map(([title, description]) => (
           <div className="settings-row" key={title}>
-
             <div>
               <strong>{title}</strong>
               <span>{description}</span>
             </div>
 
             <ChevronRight size={19} />
-
           </div>
         ))}
-
       </div>
-
     </>
   );
 }
 
-// 모달
 function Modal({ title, onClose, children }) {
   return (
     <div
       className="modal-backdrop"
       onMouseDown={onClose}
     >
-
       <div
         className="modal"
         onMouseDown={e => e.stopPropagation()}
       >
-
         <div className="modal-header">
           <h3>{title}</h3>
 
@@ -1406,9 +1272,7 @@ function Modal({ title, onClose, children }) {
         </div>
 
         {children}
-
       </div>
-
     </div>
   );
 }
