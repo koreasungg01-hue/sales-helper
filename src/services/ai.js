@@ -1,130 +1,274 @@
 
-import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
+import { useEffect, useState, useRef } from "react";
 import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  serverTimestamp
-} from "firebase/firestore";
+  Bot,
+  X,
+  Send,
+  Sparkles,
+  MessageCircle,
+  Minus
+} from "lucide-react";
 
-import app, { auth, db } from "./firebase";
+import { askAI, loadAIHistory } from "../services/ai";
+import "../styles/ai.css";
 
-const ai = getAI(app, {
-  backend: new GoogleAIBackend()
-});
+const greeting = {
+  role: "assistant",
+  text: "안녕하세요! 매출도우미 AI입니다. 매장 관리를 무엇부터 도와드릴까요?"
+};
 
-const model = getGenerativeModel(ai, {
-  model: "gemini-3.8-flash"
-});
+export default function AIFloatingAssistant() {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([greeting]);
 
-const SYSTEM_PROMPT = `
-너는 매출도우미의 전문 AI 비서다.
+  const messagesEndRef = useRef(null);
 
-- 항상 한국어로 답변한다.
-- 친절하고 간결하게 설명한다.
-- 매출, 지출, 상품, 재고 관리에 전문적으로 답변한다.
-- 실제로 전달받지 않은 수치를 지어내지 않는다.
-- 데이터가 없으면 없다고 알린다.
-- 이전 대화 내용을 참고한다.
-`;
+  useEffect(() => {
+    let active = true;
 
-function getMemoryCollection() {
-  const user = auth.currentUser;
+    loadAIHistory()
+      .then(history => {
+        if (!active || history.length === 0) return;
 
-  if (!user) {
-    throw new Error("로그인이 필요합니다.");
-  }
+        setMessages([
+          greeting,
+          ...history.map(item => ({
+            role: item.role,
+            text: item.text
+          }))
+        ]);
+      })
+      .catch(error => {
+        console.error("AI 기록 불러오기 실패:", error);
+      });
 
-  return collection(db, "users", user.uid, "aiMessages");
-}
+    return () => {
+      active = false;
+    };
+  }, []);
 
-export async function loadAIHistory() {
-  const q = query(
-    getMemoryCollection(),
-    orderBy("createdAt", "desc"),
-    limit(20)
-  );
-
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })).reverse();
-}
-
-export async function askAI(message) {
-  const cleanMessage = message.trim();
-
-  if (!cleanMessage) {
-    throw new Error("질문을 입력해 주세요.");
-  }
-
-  const history = await loadAIHistory();
-
-  const conversation = history
-    .map(item => {
-      const speaker = item.role === "user" ? "사용자" : "AI";
-      return `${speaker}: ${item.text}`;
-    })
-    .join("\n");
-
-  const prompt = `
-${SYSTEM_PROMPT}
-
-[이전 대화]
-${conversation || "이전 대화가 없습니다."}
-
-[새 질문]
-사용자: ${cleanMessage}
-
-AI:
-`;
-
-  const controller = new AbortController();
-
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, 30000);
-
-  let answer;
-
-  try {
-    const result = await model.generateContent(prompt, {
-      signal: controller.signal
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth"
     });
+  }, [messages, loading]);
 
-    answer = result.response.text();
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("AI 응답 시간이 30초를 초과했습니다. 연결 상태나 모델 설정을 확인해 주세요.");
+  const suggestions = [
+    "오늘 매출 분석해 줘",
+    "인기 상품을 알려 줘",
+    "재고 부족 상품을 알려 줘",
+    "다음 달 매출을 예측해 줘"
+  ];
+
+  async function sendMessage(value = input) {
+    const message = value.trim();
+
+    if (!message || loading) return;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        role: "user",
+        text: message
+      }
+    ]);
+
+    setInput("");
+    setLoading(true);
+
+    try {
+      const answer = await askAI(message);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          text: answer
+        }
+      ]);
+    } catch (error) {
+      console.error("Gemini AI 오류:", error);
+
+      let errorMessage =
+        "AI 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+
+      if (error.message?.includes("30초")) {
+        errorMessage =
+          "AI 응답 시간이 30초를 초과했습니다. 연결 상태나 모델 설정을 확인해 주세요.";
+      } else if (
+        error.code === "permission-denied"
+      ) {
+        errorMessage =
+          "대화 기록 저장 권한이 없습니다. Firebase 보안 규칙을 확인해 주세요.";
+      } else if (
+        error.message?.toLowerCase().includes("app check")
+      ) {
+        errorMessage =
+          "Firebase App Check 설정을 확인해 주세요.";
+      } else if (
+        error.message?.toLowerCase().includes("quota") ||
+        error.code === "resource-exhausted"
+      ) {
+        errorMessage =
+          "AI 무료 사용 한도에 도달했을 수 있습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (
+        error.code === "unauthenticated"
+      ) {
+        errorMessage =
+          "로그인 상태를 확인해 주세요.";
+      }
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          text: errorMessage
+        }
+      ]);
+    } finally {
+      setLoading(false);
     }
-
-    throw error;
-  } finally {
-    clearTimeout(timer);
   }
 
-  if (!answer) {
-    throw new Error("AI가 답변을 생성하지 못했습니다.");
-  }
+  return (
+    <>
+      {open && (
+        <div className="ai-chat-window">
 
-  const messages = getMemoryCollection();
+          <div className="ai-chat-header">
+            <div className="ai-chat-brand">
+              <div className="ai-avatar">
+                <Bot size={21} />
+              </div>
 
-  await addDoc(messages, {
-    role: "user",
-    text: cleanMessage,
-    createdAt: serverTimestamp()
-  });
+              <div>
+                <strong>매출도우미 AI</strong>
 
-  await addDoc(messages, {
-    role: "assistant",
-    text: answer,
-    createdAt: serverTimestamp()
-  });
+                <span>
+                  <i /> Gemini AI
+                </span>
+              </div>
+            </div>
 
-  return answer;
+            <div className="ai-chat-controls">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="채팅 최소화"
+              >
+                <Minus size={19} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="채팅 닫기"
+              >
+                <X size={19} />
+              </button>
+            </div>
+          </div>
+
+          <div className="ai-chat-messages">
+
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`ai-message ${message.role}`}
+              >
+                {message.role === "assistant" && (
+                  <div className="ai-message-avatar">
+                    <Bot size={16} />
+                  </div>
+                )}
+
+                <div className="ai-message-bubble">
+                  {message.text}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="ai-message assistant">
+                <div className="ai-message-avatar">
+                  <Bot size={16} />
+                </div>
+
+                <div className="ai-message-bubble ai-loading">
+                  <span>답변을 작성하고 있어요</span>
+                  <span className="ai-loading-dots">...</span>
+                </div>
+              </div>
+            )}
+
+            {messages.length === 1 && !loading && (
+              <div className="ai-suggestions">
+                <span>추천 질문</span>
+
+                {suggestions.map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => sendMessage(item)}
+                  >
+                    <Sparkles size={14} />
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+
+          </div>
+
+          <form
+            className="ai-chat-input"
+            onSubmit={event => {
+              event.preventDefault();
+              sendMessage();
+            }}
+          >
+            <input
+              value={input}
+              onChange={event => setInput(event.target.value)}
+              placeholder="AI에게 질문하기..."
+              disabled={loading}
+            />
+
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              aria-label="메시지 전송"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+
+          <div className="ai-chat-footer">
+            Gemini AI · 대화 기록은 계정별로 저장됩니다.
+          </div>
+
+        </div>
+      )}
+
+      <button
+        className={`ai-floating-button ${open ? "active" : ""}`}
+        onClick={() => setOpen(!open)}
+        aria-label="AI 비서 열기"
+      >
+        {open ? (
+          <X size={25} />
+        ) : (
+          <MessageCircle size={25} />
+        )}
+
+        {!open && (
+          <span className="ai-button-glow" />
+        )}
+      </button>
+    </>
+  );
 }
